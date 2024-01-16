@@ -16,7 +16,6 @@ const Login = () => {
       const response = await axios.post(`${BASE_URL}/api/login`, { username, password });
       localStorage.setItem('token', response.data.token);
       navigate('/orders'); // Redirect to orders page
-      // Redirect or update the state as needed
     } catch (error) {
       setError('Login failed: Incorrect username or password');
       console.error('Login failed:', error);

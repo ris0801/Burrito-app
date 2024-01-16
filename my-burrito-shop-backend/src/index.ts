@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2';
 import { OkPacket, RowDataPacket, ResultSetHeader } from 'mysql2';
-import db from './database'; // Import the database connection
+import db from './database'; 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -20,7 +20,7 @@ interface Order {
 declare global {
   namespace Express {
     interface Request {
-      user?: any; // You can define a more specific type for user if needed
+      user?: any;
     }
   }
 }
@@ -43,7 +43,7 @@ app.post('/api/register', (req, res) => {
   // Insert the new user into the database with plain text password
   db.query(
     'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-    [username, password, role], // Store the password as plain text
+    [username, password, role], // Note: Password right now is being stored as plaintext
     (err, results) => {
       if (err) {
         return res.status(500).send('Error registering new user');
@@ -68,21 +68,19 @@ app.post('/api/login', (req, res) => {
         return res.status(500).send('Error logging in user');
       }
 
-      // Check if results is an array and has at least one element
       if (!Array.isArray(results) || results.length === 0) {
         return res.status(401).send('Incorrect username or password');
       }
 
-      const user = results[0] as any; // Cast the first element to 'any'
+      const user = results[0] as any;
 
-      // Directly compare the plain text passwords
       if (user.password !== password) {
         return res.status(401).send('Incorrect username or password');
       }
 
       const token = jwt.sign(
         { userId: user.id, role: user.role },
-        'YOUR_SECRET_KEY', // Replace with your secret key
+        'YOUR_SECRET_KEY', 
         { expiresIn: '1h' }
       );
 
@@ -110,7 +108,6 @@ const authenticateJWT = (req: express.Request, res: express.Response, next: expr
   }
 };
 
-// Route to list all burrito products
 app.get('/api/burritos', (req, res) => {
   const query = `
     SELECT 
@@ -157,7 +154,6 @@ app.post('/api/orders', async (req, res) => {
   try {
     let totalCost = 0;
 
-    // Calculate total cost
     for (const item of items) {
       const [burritoRows] = await db.promise().query('SELECT price FROM burritos WHERE id = ?', [item.burrito_id]) as RowDataPacket[][];
       if (burritoRows.length > 0) {
@@ -174,14 +170,11 @@ app.post('/api/orders', async (req, res) => {
       }
     }
 
-    // Insert the order
     const [insertOrderResult] = await db.promise().query('INSERT INTO orders (total_cost, preparation_status) VALUES (?, ?)', [totalCost, false]) as OkPacket[];
     const orderId = insertOrderResult.insertId;
 
-    // Insert each order item
     for (const item of items) {
       await db.promise().query('INSERT INTO order_items (order_id, burrito_id, quantity) VALUES (?, ?, ?)', [orderId, item.burrito_id, item.quantity]);
-      // Assume options are handled separately or included in the item details
     }
 
     res.send({ message: 'Order created successfully', orderId: orderId });
@@ -227,7 +220,7 @@ app.get('/api/orders', (req, res) => {
         }
 
         order.items.push({
-          burrito_name: `${curr.burrito_name} (${curr.size})`, // Combine name and size
+          burrito_name: `${curr.burrito_name} (${curr.size})`, 
           quantity: curr.quantity
         });
   
@@ -240,7 +233,7 @@ app.get('/api/orders', (req, res) => {
 });
 
 
-// Route to fetch details of a specific order
+// Getting details for specific order
 app.get('/api/orders/:id', (req, res) => {
   const orderId = req.params.id;
 
@@ -250,7 +243,6 @@ app.get('/api/orders/:id', (req, res) => {
       return;
     }
 
-    // Type assertion here
     const orderResults = results as RowDataPacket[];
 
     if (orderResults.length === 0) {
@@ -264,7 +256,6 @@ app.get('/api/orders/:id', (req, res) => {
         return;
       }
 
-      // Type assertion here
       const itemsResults = itemResults as RowDataPacket[];
 
       res.json({ order: orderResults[0], items: itemsResults });
@@ -283,11 +274,10 @@ app.get('/api/burrito-options', (req, res) => {
 });
 
 
-// Route for marking an order as prepared (without authentication for now)
+// Route for marking an order as prepared
 app.put('/api/orders/:id/prepared', (req, res) => {
   const orderId = req.params.id;
 
-  // Update the 'preparation_status' of the order to 'prepared'
   db.query('UPDATE orders SET preparation_status = true WHERE id = ?', [orderId], (err, results: ResultSetHeader) => {
     if (err) {
       res.status(500).send('Error marking order as prepared');
