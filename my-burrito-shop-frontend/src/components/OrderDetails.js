@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom'; // Import useParams
+import { useParams } from 'react-router-dom';
 
 const BASE_URL = 'http://localhost:3001';
 
@@ -15,7 +15,6 @@ const OrderDetails = () => {
           setOrder(response.data);
         } catch (error) {
           console.error("Error fetching order details", error);
-          // Handle error appropriately
         }
       };
   
@@ -27,11 +26,27 @@ const OrderDetails = () => {
     return (
       <div>
         <h2>Order Details</h2>
-        <pre>{JSON.stringify(order, null, 2)}</pre>
-        {/* Display the preparation status here */}
-        <div>Preparation Status: {order.prepared ? 'Prepared' : 'Not Prepared'}</div>
+        <div>
+          <h3>Order ID: {order.order_id}</h3>
+          <p>Total Cost: ${order.total_cost}</p>
+          <ul>
+            {order.items.map((item, index) => (
+              <li key={index}>
+                {item.burrito_name} - Quantity: {item.quantity}
+                {item.options && (
+                  <ul>
+                    {item.options.map((option, optionIndex) => (
+                      <li key={optionIndex}>{option}</li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div>Preparation Status: {order.preparation_status ? 'Prepared' : 'Not Prepared'}</div>
+        </div>
       </div>
     );
-  };
+};
   
-  export default OrderDetails;
+export default OrderDetails;

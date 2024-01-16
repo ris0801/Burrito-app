@@ -9,14 +9,13 @@ const OrdersList = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       setIsLoading(true);
-      setError(null); // Reset error state
+      setError(null);
       try {
         const response = await axios.get('http://localhost:3001/api/orders');
         setOrders(response.data);
       } catch (error) {
         console.error('Error fetching orders:', error);
-        setError(error.message); // Save the error message
-        // You can also set an error state here to show an error message
+        setError(error.message);
       }
       setIsLoading(false);
     };
@@ -24,20 +23,14 @@ const OrdersList = () => {
     fetchOrders();
   }, []);
 
-
   const markAsPrepared = async (orderId) => {
     try {
       await axios.put(`http://localhost:3001/api/orders/${orderId}/prepared`);
-      // Option 1: Remove the order from the list
       setOrders(prevOrders => prevOrders.filter(order => order.order_id !== orderId));
-  
-      // Option 2: Update the status in the UI (requires a slight change in your data model)
     } catch (error) {
       console.error('Error marking order as prepared:', error);
-      // Handle error appropriately
     }
   };
-  
 
   return (
     <div>
@@ -47,30 +40,32 @@ const OrdersList = () => {
       ) : error ? (
         <p>Error loading orders: {error}</p>
       ) : orders.length > 0 ? (
-    orders.map(order => (
-    <div key={order.order_id}>
-        <h3>Order ID: {order.order_id}</h3>
-        <p>Total Cost: ${order.total_cost}</p>
-        <ul>
-        {order.items && Array.isArray(order.items) ? (
-            order.items.map(item => (
-            <li key={item.burrito_id}>
-                {item.burrito_name} - Quantity: {item.quantity}
-            </li>
-            ))
-        ) : (
-            <p>No items in this order</p>
-        )}
-        </ul>
-        <button onClick={() => markAsPrepared(order.order_id)}>Mark as Prepared</button>
-    </div>
-    ))
+        orders.map(order => (
+          <div key={order.order_id}>
+            <h3>Order ID: {order.order_id}</h3>
+            <p>Total Cost: ${parseFloat(order.total_cost).toFixed(2)}</p>
+            <ul>
+              {order.items.map(item => (
+                <li key={item.id}>
+                  {item.burrito_name} - Quantity: {item.quantity}
+                  {item.options && item.options.length > 0 && (
+                    <ul>
+                      {item.options.map((option, index) => (
+                        <li key={index}>{option}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <button onClick={() => markAsPrepared(order.order_id)}>Mark as Prepared</button>
+          </div>
+        ))
       ) : (
         <p>No orders to display</p>
       )}
     </div>
   );
-  
 };
 
 export default OrdersList;

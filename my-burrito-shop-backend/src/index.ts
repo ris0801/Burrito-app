@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import { OkPacket, RowDataPacket, ResultSetHeader } from 'mysql2';
 import db from './database'; // Import the database connection
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -112,82 +112,83 @@ const authenticateJWT = (req: express.Request, res: express.Response, next: expr
 
 // Route to list all burrito products
 app.get('/api/burritos', (req, res) => {
-  db.query('SELECT * FROM burritos', (err, results) => {
+  const query = `
+    SELECT 
+      b.id as burrito_id,
+      b.name as burrito_name,
+      b.size,
+      b.price,
+      GROUP_CONCAT(bo.name) as options
+    FROM 
+      burritos b
+    LEFT JOIN 
+      burrito_burrito_options bbo ON b.id = bbo.burrito_id
+    LEFT JOIN 
+      burrito_options bo ON bbo.option_id = bo.id
+    GROUP BY 
+      b.id
+  `;
+
+  db.query(query, (err, results) => {
     if (err) {
-      res.status(500).send('Error retrieving data from database');
+      res.status(500).send('Error retrieving burritos with options from the database');
     } else {
-      res.json(results);
+      const formattedResults = (results as RowDataPacket[]).map(row => ({
+        id: row.burrito_id,
+        name: row.burrito_name,
+        size: row.size,
+        price: row.price,
+        options: row.options ? row.options.split(',') : []
+      }));
+      
+      res.json(formattedResults);
     }
   });
 });
 
-// Route for creating a new order (without authentication for now)
-app.post('/api/orders', authenticateJWT ,(req, res) => {
-  const { total_cost, items, apiKey } = req.body;
 
-  // Check if items array is valid
-  if (!Array.isArray(items) || items.some(item => typeof item.burrito_id !== 'number' || typeof item.quantity !== 'number')) {
-    return res.status(400).send('Invalid order items');
+app.post('/api/orders', async (req, res) => {
+  const { items } = req.body;
+
+  if (!Array.isArray(items)) {
+    return res.status(400).send('Invalid order format');
   }
 
-  db.getConnection((err, connection) => {
-    if (err) {
-      res.status(500).send('Error connecting to the database');
-      return;
-    }
-    
-    connection.beginTransaction(err => {
-      if (err) {
-        res.status(500).send('Error starting transaction');
-        return;
-      }
+  try {
+    let totalCost = 0;
 
-      connection.query(
-        'INSERT INTO orders (total_cost, preparation_status) VALUES (?, ?)', 
-        [total_cost, false], // Set preparation_status to false for new orders
-        (err, results) => {
-          if (err) {
-            return connection.rollback(() => {
-              res.status(500).send('Error inserting order');
-            });
+    // Calculate total cost
+    for (const item of items) {
+      const [burritoRows] = await db.promise().query('SELECT price FROM burritos WHERE id = ?', [item.burrito_id]) as RowDataPacket[][];
+      if (burritoRows.length > 0) {
+        let burritoCost = burritoRows[0].price * item.quantity;
+
+        for (const optionId of item.options) {
+          const [optionRows] = await db.promise().query('SELECT additional_cost FROM burrito_options WHERE id = ?', [optionId]) as RowDataPacket[][];
+          if (optionRows.length > 0) {
+            burritoCost += optionRows[0].additional_cost * item.quantity;
           }
-
-          const insertResult = results as ResultSetHeader;
-          const orderId = insertResult.insertId;
-
-          const orderItemsQueries = items.map(item => {
-            return new Promise<void>((resolve, reject) => {
-              connection.query(
-                'INSERT INTO order_items (order_id, burrito_id, quantity) VALUES (?, ?, ?)', 
-                [orderId, item.burrito_id, item.quantity], 
-                (err) => {
-                  if (err) reject(err);
-                  else resolve();
-                }
-              );
-            });
-          });
-
-          Promise.all(orderItemsQueries)
-            .then(() => {
-              connection.commit(err => {
-                if (err) {
-                  return connection.rollback(() => {
-                    res.status(500).send('Error committing transaction');
-                  });
-                }
-                res.send('Order created successfully');
-              });
-            })
-            .catch(err => {
-              connection.rollback(() => {
-                res.status(500).send('Error inserting order items');
-              });
-            });
         }
-      );
-    });
-  });
+
+        totalCost += burritoCost;
+      }
+    }
+
+    // Insert the order
+    const [insertOrderResult] = await db.promise().query('INSERT INTO orders (total_cost, preparation_status) VALUES (?, ?)', [totalCost, false]) as OkPacket[];
+    const orderId = insertOrderResult.insertId;
+
+    // Insert each order item
+    for (const item of items) {
+      await db.promise().query('INSERT INTO order_items (order_id, burrito_id, quantity) VALUES (?, ?, ?)', [orderId, item.burrito_id, item.quantity]);
+      // Assume options are handled separately or included in the item details
+    }
+
+    res.send({ message: 'Order created successfully', orderId: orderId });
+  } catch (error) {
+    console.error('Error in creating order:', error);
+    res.status(500).send('Error creating order');
+  }
 });
 
 app.get('/api/orders', (req, res) => {
@@ -271,6 +272,17 @@ app.get('/api/orders/:id', (req, res) => {
   });
 });
 
+app.get('/api/burrito-options', (req, res) => {
+  db.query('SELECT * FROM burrito_options', (err, results) => {
+    if (err) {
+      res.status(500).send('Error retrieving burrito options from database');
+    } else {
+      res.json(results);
+    }
+  });
+});
+
+
 // Route for marking an order as prepared (without authentication for now)
 app.put('/api/orders/:id/prepared', (req, res) => {
   const orderId = req.params.id;
@@ -292,3 +304,5 @@ app.put('/api/orders/:id/prepared', (req, res) => {
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
 });
+
+export default app;
