@@ -44,7 +44,7 @@ mysql2: MySQL client for Node.js.
    ```
 5. Other dependencies I installed
    ```
-   npm install express cors
+   npm install express cors mysql2 body-parser
    npm install --save-dev typescript ts-node @types/node @types/express
    npm install --save-dev ts-node-dev
    ```
