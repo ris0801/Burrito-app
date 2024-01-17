@@ -14,10 +14,25 @@ Functionalities that have implemented till now
 
 ## Table of Contents
 
+- [Setting up to run project through Docker](#Setup)
 - [Backend](#backend)
 - [Frontend](#frontend)
 - [Database](#database)
 - [Running the Project](#running-the-project)
+
+
+## Setting up to run project through Docker
+docker pull mysql
+docker network create burrito-network
+docker run --name my-mysql-network -e MYSQL_ROOT_PASSWORD=mypassword --network=burrito-network -d -p 3308:3306 mysql
+
+Go to backend directory: 
+docker build -t my-burrito-backend-dev .
+docker run -d --name my-burrito-backend-dev-container --network=burrito-network -p 3001:3001 my-burrito-backend-dev
+
+Go to frontend directory: 
+docker build -t my-burrito-frontend-dev .
+docker run -d --name my-burrito-frontend-dev-container --network=burrito-network -p 3000:3000 my-burrito-frontend-dev
 
 ## Backend
 
