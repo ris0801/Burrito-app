@@ -95,6 +95,14 @@ docker run --name my-mysql-network -e MYSQL_ROOT_PASSWORD=mypassword --network=b
     ('Beef Burrito', 'XL', 6.00),
     ('Veggie Burrito', 'XL', 5.50),
     ('Pork Burrito', 'XL', 6.50);
+
+   INSERT INTO burrito_burrito_options (burrito_id, option_id) VALUES
+   (1, 1),  
+   (1, 2),  
+   (2, 1),  
+   (2, 3),  
+   (3, 2),  
+   (3, 3);  
   
    ```
 
